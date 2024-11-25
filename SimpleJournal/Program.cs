@@ -1,9 +1,10 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var config = builder.Configuration.GetSection("MoodTracker");
+var config = builder.Configuration.GetRequiredSection("MoodTracker");
 
 builder.Services.AddSingleton<MoodTracker>();
 builder.Services.Configure<MoodTrackerOptions>(config);
