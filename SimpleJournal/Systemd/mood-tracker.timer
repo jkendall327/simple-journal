@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Mood Tracker Daily
+Requires=mood-tracker.service
+
+[Timer]
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

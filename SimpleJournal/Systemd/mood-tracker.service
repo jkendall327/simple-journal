@@ -1,0 +1,16 @@
+[Unit]
+Description=Daily Mood Tracker
+After=network.target
+
+[Service]
+Type=oneshot
+User=%i
+Environment=DOTNET_ENVIRONMENT=Production
+ExecStart=/usr/bin/dotnet /opt/mood-tracker/MoodTracker.dll
+WorkingDirectory=/opt/mood-tracker
+
+# Ensure we have a proper display for the text editor
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=multi-user.target
