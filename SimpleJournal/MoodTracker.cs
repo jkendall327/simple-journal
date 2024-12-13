@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+namespace SimpleJournal;
 
 public class MoodTracker
 {
@@ -11,7 +13,7 @@ public class MoodTracker
     private readonly string _entriesPath;
     private readonly string _masterFilePath;
 
-    private const string TEMPLATE = """
+    private const string Template = """
                                     Date: {0}
 
                                     Current Mood (1-10): 
@@ -46,16 +48,10 @@ public class MoodTracker
         try
         {
             InitializeDirectories();
+            
             var todayFile = await CreateTodayEntry();
             
-            if (_options.WaitForEditor)
-            {
-                await WaitForEditorToClose(todayFile);
-            }
-            else
-            {
-                await WaitForFileUnlock(todayFile);
-            }
+            await WaitForEditorToClose(todayFile);
             
             await ConsolidateEntries();
         }
@@ -68,9 +64,18 @@ public class MoodTracker
 
     private void InitializeDirectories()
     {
-        Directory.CreateDirectory(_options.BaseDirectory);
+        var directory = _options.BaseDirectory;
+
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            var assembly = Assembly.GetExecutingAssembly().Location;
+            directory = Path.GetDirectoryName(assembly);
+        }
+        
+        Directory.CreateDirectory(directory!);
         Directory.CreateDirectory(_entriesPath);
-        _logger.LogDebug("Initialized directories at {BaseDir}", _options.BaseDirectory);
+        
+        _logger.LogDebug("Initialized directories at {BaseDir}", directory);
     }
 
     private async Task<string> CreateTodayEntry()
@@ -80,7 +85,7 @@ public class MoodTracker
 
         if (File.Exists(todayFilePath)) return todayFilePath;
         
-        var template = string.Format(TEMPLATE, DateTime.Now.ToString("yyyy-MM-dd"));
+        var template = string.Format(Template, DateTime.Now.ToString("yyyy-MM-dd"));
         await File.WriteAllTextAsync(todayFilePath, template);
         _logger.LogInformation("Created new entry for {Date}", DateTime.Now.ToString("yyyy-MM-dd"));
 
@@ -95,6 +100,7 @@ public class MoodTracker
             {
                 UseShellExecute = true
             };
+            
             using var process = Process.Start(processInfo);
             
             if (process == null)
@@ -111,43 +117,6 @@ public class MoodTracker
         {
             _logger.LogError(ex, "Error waiting for editor process");
             throw;
-        }
-    }
-
-    private async Task WaitForFileUnlock(string filePath)
-    {
-        const int maxAttempts = 10;
-        const int delayMs = 1000;
-        var attempts = 0;
-
-        while (attempts < maxAttempts)
-        {
-            if (IsFileLocked(filePath))
-            {
-                _logger.LogDebug("File is locked, waiting {Delay}ms (attempt {Attempt}/{Max})", 
-                    delayMs, attempts + 1, maxAttempts);
-                await Task.Delay(delayMs);
-                attempts++;
-            }
-            else
-            {
-                return;
-            }
-        }
-
-        _logger.LogWarning("File remained locked after {Attempts} attempts", maxAttempts);
-    }
-
-    private bool IsFileLocked(string filePath)
-    {
-        try
-        {
-            using var stream = File.Open(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            return false;
-        }
-        catch (IOException)
-        {
-            return true;
         }
     }
 
